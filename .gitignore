@@ -1,0 +1,5 @@
+deliver/
+__pycache__/
+*.AppImage
+squashfs-root/
+**/out/_orca/
