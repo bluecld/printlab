@@ -42,8 +42,9 @@ No desktop apps, no screen control. Claude never starts a print; Anthony presses
 ## Environment (cloud container is wiped between sessions)
 - Environment setup script = `setup/cloud_setup.sh` (pinned versions, self-test), saved to the
   "Default Cloud Environment" on 2026-10-30. Network access: Full. Python: `/opt/printlab-venv/bin/python -I`.
-- The setup script installs tools only. This printlab folder is not in a new container: upload the kit zip
-  (or use a repo) at the start of each session. First step in a new session: "check setup".
+- The setup script installs tools only. Project files live in the private repo `bluecld/printlab`: start each
+  session with that repository selected. First step in a new session: "check setup".
+- Git: new work on a branch, one draft PR per change; Anthony merges. Never push to `main` directly.
 - GitHub: this session only serves git source of public repos; release downloads are blocked per repository
   (allowed-domain list does not change that). Creality Print for Linux is GitHub-release only -> not reachable.
 - OrcaSlicer 2.4.2 AppImage from SourceForge mirror (orcaslicer.mirror/v2.4.2, sha1 00383ed2f3a5a6e3c7066a3a1fe7052855c5f8ce)
