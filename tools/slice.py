@@ -4,13 +4,17 @@ Usage: python -I slice.py <profile.ini> <out.gcode> <a_print.stl> [b_print.stl .
 Several STLs go on one plate, auto-arranged.
 Reports time, grams, metres, and how much extrusion went to supports and bridges.
 """
-import sys, re, subprocess, collections
+import os, sys, re, shutil, subprocess, collections
+
+# Linux: prusa-slicer on PATH. Windows: the console build, which prints the CLI messages.
+PRUSA = (shutil.which("prusa-slicer") or shutil.which("prusa-slicer-console")
+         or os.path.expandvars(r"%ProgramFiles%\Prusa3D\PrusaSlicer\prusa-slicer-console.exe"))
 
 
 def slice_part(ini, out, stls):
     place = ["--center", "130,130"] + (["--merge"] if len(stls) > 1 else [])  # --merge puts all inputs on one plate
-    cmd = ["prusa-slicer", "--export-gcode", "--load", ini, *place, "-o", out, *stls]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    cmd = [PRUSA, "--export-gcode", "--load", ini, *place, "-o", out, *stls]
+    r = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace")
     if r.returncode or "Slicing result exported" not in r.stdout + r.stderr:
         print(r.stdout[-2000:], r.stderr[-2000:])
         raise SystemExit("SLICE FAILED")
@@ -20,7 +24,7 @@ def slice_part(ini, out, stls):
 def read(gcode):
     e_by_type = collections.Counter()
     kind, meta = "other", {}
-    with open(gcode) as f:
+    with open(gcode, encoding="utf-8", errors="replace") as f:
         for line in f:
             if line.startswith(";TYPE:"):
                 kind = line[6:].strip()
@@ -39,7 +43,7 @@ def read(gcode):
         metres=round(float(meta.get("filament used [mm]", "0").split(",")[0]) / 1000, 2),
         support_pct=round(share("Support material", "Support material interface"), 1),
         bridge_pct=round(share("Bridge infill"), 1),
-        layers=sum(1 for _ in open(gcode) if _.startswith(";LAYER_CHANGE")),
+        layers=sum(1 for _ in open(gcode, encoding="utf-8", errors="replace") if _.startswith(";LAYER_CHANGE")),
     )
     for k, v in res.items():
         print(f"{k:12}: {v}")

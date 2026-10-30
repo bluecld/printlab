@@ -5,9 +5,25 @@ Usage: python -I slice_orca.py <PLA|PETG> <out_dir> <a_print.stl> [b_print.stl .
 Writes the resolved profiles used to <printlab>/profiles/creality_k2/orca/, the G-code to <out_dir>,
 and reports time, grams, support %, bridge %.
 """
-import sys, json, re, pathlib, subprocess, collections, shutil
+import os, sys, json, re, pathlib, subprocess, collections, shutil
 
-ORCA = pathlib.Path("/opt/orcaslicer/squashfs-root")
+
+def find_orca():
+    """OrcaSlicer folder and executable: $PRINTLAB_ORCA, else the pinned portable copy or the normal
+    install on Windows (same order as setup/win_setup.ps1), else the cloud container's AppImage."""
+    if os.name == "nt":
+        dirs = [os.environ.get("PRINTLAB_ORCA"), os.path.expandvars(r"%LOCALAPPDATA%\printlab\OrcaSlicer"),
+                os.path.expandvars(r"%ProgramFiles%\OrcaSlicer")]
+        exe = "orca-slicer.exe"
+    else:
+        dirs, exe = [os.environ.get("PRINTLAB_ORCA"), "/opt/orcaslicer/squashfs-root"], "AppRun"
+    for d in filter(None, dirs):
+        if (pathlib.Path(d) / exe).exists():
+            return pathlib.Path(d), pathlib.Path(d) / exe
+    raise SystemExit("OrcaSlicer not found (set PRINTLAB_ORCA to its folder)")
+
+
+ORCA, ORCA_EXE = find_orca()
 PROFILES = ORCA / "resources/profiles"
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SAVE = ROOT / "profiles/creality_k2/orca"
@@ -34,10 +50,10 @@ TEK = dict(
 
 
 def resolve(name):
-    idx = json.load(open(PROFILES / "Creality.json"))
+    idx = json.load(open(PROFILES / "Creality.json", encoding="utf-8"))
     paths = {e["name"]: e["sub_path"] for k in ("machine_list", "machine_model_list", "process_list", "filament_list")
              for e in idx.get(k, [])}
-    d = json.load(open(PROFILES / "Creality" / paths[name]))
+    d = json.load(open(PROFILES / "Creality" / paths[name], encoding="utf-8"))
     base = resolve(d["inherits"]) if d.get("inherits") else {}
     base.update({k: v for k, v in d.items() if k != "inherits"})
     return base
@@ -59,7 +75,7 @@ def write_profiles(material):
             d["compatible_printers_condition"] = ""
         tag = {"machine": "K2_0.4", "process": "0.20_TEK", "filament": f"Hyper{material}_K2"}[kind]
         out[kind] = SAVE / f"orca_{kind}_{tag}.json"
-        out[kind].write_text(json.dumps(d, indent=1))
+        out[kind].write_text(json.dumps(d, indent=1), encoding="utf-8", newline="\n")
     return out
 
 
@@ -67,10 +83,10 @@ def run(material, out_dir, stls):
     prof = write_profiles(material)
     out_dir = pathlib.Path(out_dir); out_dir.mkdir(parents=True, exist_ok=True)
     work = out_dir / "_orca"; shutil.rmtree(work, ignore_errors=True); work.mkdir()
-    cmd = [str(ORCA / "AppRun"), "--arrange", "1", "--orient", "0", "--curr-bed-type", BED,
+    cmd = [str(ORCA_EXE), "--arrange", "1", "--orient", "0", "--curr-bed-type", BED,
            "--load-settings", f"{prof['machine']};{prof['process']}", "--load-filaments", str(prof["filament"]),
            "--slice", "0", "--outputdir", str(work), *stls]
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    r = subprocess.run(cmd, capture_output=True, encoding="utf-8", errors="replace", timeout=600)
     gcodes = sorted(work.glob("*.gcode"))
     if r.returncode or not gcodes:
         print(r.stdout[-3000:], r.stderr[-3000:])
@@ -88,7 +104,7 @@ def run(material, out_dir, stls):
 def read(gcode, names):
     e_by_type, meta, objects = collections.Counter(), {}, set()
     kind = "other"
-    text = open(gcode).read().splitlines()
+    text = open(gcode, encoding="utf-8", errors="replace").read().splitlines()
     for line in text:
         if line.startswith(";TYPE:") or line.startswith("; FEATURE:"):
             kind = line.split(":", 1)[1].strip()

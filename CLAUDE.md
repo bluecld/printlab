@@ -1,4 +1,4 @@
-# printlab: CAD-to-print in the cloud (Creality K2)
+# printlab: CAD-to-print (Creality K2)
 
 Code-only pipeline: parametric CAD (CadQuery) -> checks -> renders -> STL -> slice (CLI) -> G-code.
 No desktop apps, no screen control. Claude never starts a print; Anthony presses print.
@@ -39,19 +39,37 @@ No desktop apps, no screen control. Claude never starts a print; Anthony presses
    and objects found vs expected. Check support % is where expected. (Fallback: `tools/slice.py`.)
 8. Stop. Deliver files. Update this file.
 
-## Environment (cloud container is wiped between sessions)
+## Environment
+### Windows 11 PC (primary, from 2026-10-30)
+- Claude Code desktop app, local session, opened on the repo folder (e.g. `C:\Users\<you>\printlab`; not
+  inside OneDrive). Tools stay installed between sessions.
+- Setup and "check setup" (first step in a new session): `powershell -ExecutionPolicy Bypass -File setup\win_setup.ps1`.
+  No admin. Reuses the installed Python (3.12-3.14) and OrcaSlicer, installs only what is missing (Python 3.13
+  via winget; OrcaSlicer 2.4.2 portable, SHA-256 checked), creates `.venv` with the pinned packages (`setup/constraints.txt` = exact cloud versions), then
+  self-tests: build, check, render and slice the fit coupon against the cloud reference (15m 16s / 8.19 g).
+- Python: `.venv\Scripts\python.exe -I` (Git Bash: `.venv/Scripts/python.exe -I`).
+- OrcaSlicer: `tools/slice_orca.py` uses `%PRINTLAB_ORCA%`, else `%LOCALAPPDATA%\printlab\OrcaSlicer` (pinned
+  portable 2.4.2, `win_setup.ps1 -PinnedOrca`), else `C:\Program Files\OrcaSlicer`. The K2 profiles come from
+  that install: setup reports its Creality profile set; 02.03.02.75 = OrcaSlicer 2.4.2 (same K2 profiles as the
+  cloud AppImage, checked). Another version can change the G-code: it shows as a git diff in `profiles/creality_k2/orca/`.
+- PrusaSlicer fallback: optional, not installed by setup; `tools/slice.py` finds `prusa-slicer-console.exe`.
+- Not yet run on the PC: the first `win_setup.ps1` run is the Windows test.
+
+### Cloud session (fallback; container is wiped between sessions)
 - Environment setup script = `setup/cloud_setup.sh` (pinned versions, self-test), saved to the
   "Default Cloud Environment" on 2026-10-30. Network access: Full. Python: `/opt/printlab-venv/bin/python -I`.
 - The setup script installs tools only. Project files live in the private repo `bluecld/printlab`: start each
-  session with that repository selected. First step in a new session: "check setup".
-- Git: new work on a branch, one draft PR per change; Anthony merges. Never push to `main` directly.
-- GitHub: this session only serves git source of public repos; release downloads are blocked per repository
+  session with that repository selected.
+- GitHub: the cloud session only serves git source of public repos; release downloads are blocked per repository
   (allowed-domain list does not change that). Creality Print for Linux is GitHub-release only -> not reachable.
 - OrcaSlicer 2.4.2 AppImage from SourceForge mirror (orcaslicer.mirror/v2.4.2, sha1 00383ed2f3a5a6e3c7066a3a1fe7052855c5f8ce)
   extracted to /opt/orcaslicer/squashfs-root; needs libwebkit2gtk-4.1-0 even headless. Setup script installs it
   (best effort; mirror is slow, ~10 min). Auto mode blocks running downloaded programs: switch the session to
   Accept edits and approve the OrcaSlicer prompt.
 - PyVista renders off-screen (no display needed).
+
+### Both
+- Git: new work on a branch, one draft PR per change; Anthony merges. Never push to `main` directly.
 
 ## Parts
 | Part | Version | Bodies | Orientation | Status |
@@ -76,3 +94,5 @@ No desktop apps, no screen control. Claude never starts a print; Anthony presses
 - OrcaSlicer CLI error -17 (process not compatible): a flattened printer preset must be "from": "system" and
   the process must list it in compatible_printers. Error -18: a profile value is out of range; the message names it.
 - Read the start of every new G-code: OrcaSlicer added an M191 chamber wait that Creality Print would not send.
+- Cloud setup is fragile: on 2026-10-30 the session setup was cut off mid OrcaSlicer download (75 of 138 MB) and the
+  resumed session skipped the setup script. Tools reload every session -> moved to the Windows PC.
