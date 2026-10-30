@@ -3,3 +3,4 @@ __pycache__/
 *.AppImage
 squashfs-root/
 **/out/_orca/
+*.log
