@@ -25,7 +25,7 @@ PLATE = "hot_plate"
 
 
 def load(name):
-    return json.load(open(SRC / f"{name}.resolved.json"))
+    return json.load(open(SRC / f"{name}.resolved.json", encoding="utf-8"))
 
 
 def v(d, k):
@@ -166,7 +166,7 @@ def write(path, *sections, header):
         for k, val in sec.items():
             val = str(val).replace("\r", "").replace("\n", "\\n")
             lines.append(f"{k} = {val}")
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
 
 m = load("Creality_K2_0.4_nozzle")
